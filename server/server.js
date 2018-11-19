@@ -25,28 +25,4 @@ app.listen(3000, () => {
   console.log('Started server on port 3000');
 });
 
-// var newUser = new User({
-//   email: 'foo@bar.com   '
-// })
-
-// newUser.save().then((user) => {
-//   console.log('Saved user. ', JSON.stringify(user, undefined, 2));
-// }, (err) => {
-//   console.log('could not save user. ', JSON.stringify(err, undefined, 2));
-// });
-
-// var newTodo = new Todo({
-//   text: 'Cook dinner',
-//   completed: true,
-//   completedAt: Date.now()
-// });
-
-// var newTodo = new Todo({
-//   text: 'Blah dee blah blah blah dee blah '
-// });
-
-// newTodo.save().then((doc) => {
-//   console.log('Saved todo: ', doc)
-// }, (err) => {
-//   console.log('Unable to save todo', err)
-// });
+module.exports = {app};
