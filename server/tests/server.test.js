@@ -97,7 +97,7 @@ describe('GET /todos/:id', () => {
     var invalidId = 'invalid id';
     request(app)
       .get(`/todos/${invalidId}`)
-      .expect(400)
+      .expect(404)
       .expect((res) => {
         expect(res.body.errors[0]).toBe('INVALID_ID');
       })
