@@ -68,3 +68,39 @@ describe('GET /todos', () => {
       .end(done);
   });
 });
+
+describe('GET /todos/:id', () => {
+  it('should get the expected todo', (done) => {
+    Todo.findOne({}).then((todo) => {
+      return todo
+    }).then((todo) => {
+      request(app)
+      .get(`/todos/${todo.id}`)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.todo._id).toBe(todo.id);
+        expect(res.body.todo.text).toBe(todo.text);
+      })
+      .end(done);
+    });
+  });
+
+  it('should return a friendly error when the id is not found', (done) => {
+    var missingId = '5bf2f0230edc174114f8a1ff';
+    request(app)
+      .get(`/todos/${missingId}`)
+      .expect(404)
+      .end(done);
+  });
+
+  it('should return a friendly error when the id is not valid', (done) => {
+    var invalidId = 'invalid id';
+    request(app)
+      .get(`/todos/${invalidId}`)
+      .expect(400)
+      .expect((res) => {
+        expect(res.body.errors[0]).toBe('INVALID_ID');
+      })
+      .end(done);
+  });
+});
