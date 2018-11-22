@@ -1,6 +1,8 @@
+const _ = require('lodash');
 const expect = require('expect');
 const request = require('supertest');
 const {ObjectId} = require('mongodb');
+const tk = require('timekeeper');
 
 const {app} = require('./../server');
 const {Todo} = require('./../models/todo');
@@ -21,7 +23,7 @@ beforeEach((done) => {
 });
 
 describe('POST /todos', () => {
-  it('should create a new todo', (done) => {
+  it('creates new todos', (done) => {
     var text = 'Test todo text';
     request(app)
       .post('/todos')
@@ -43,7 +45,7 @@ describe('POST /todos', () => {
       });
   });
 
-  it('should not create a todo with invalid body data', (done) => {
+  it('does not create a todo with invalid body data', (done) => {
     request(app)
       .post('/todos')
       .send({})
@@ -61,7 +63,7 @@ describe('POST /todos', () => {
 });
 
 describe('GET /todos', () => {
-  it('should get all todos', (done) => {
+  it('gets all todos', (done) => {
     request(app)
       .get('/todos')
       .expect(200)
@@ -73,7 +75,7 @@ describe('GET /todos', () => {
 });
 
 describe('GET /todos/:id', () => {
-  it('should get the expected todo', (done) => {
+  it('gets the expected todo', (done) => {
     var todo = todos[0];
     request(app)
     .get(`/todos/${todo._id}`)
@@ -85,7 +87,7 @@ describe('GET /todos/:id', () => {
     .end(done);
   });
 
-  it('should return a friendly error when the id is not found', (done) => {
+  it('returns a friendly error when the id is not found', (done) => {
     var missingId = '5bf2f0230edc174114f8a1ff';
     request(app)
       .get(`/todos/${missingId}`)
@@ -93,7 +95,7 @@ describe('GET /todos/:id', () => {
       .end(done);
   });
 
-  it('should return a friendly error when the id is not valid', (done) => {
+  it('returns a friendly error when the id is not valid', (done) => {
     var invalidId = 'invalid id';
     request(app)
       .get(`/todos/${invalidId}`)
@@ -119,14 +121,14 @@ describe('DELETE /todos/:id', () => {
       if(err) {
         return done(err);
       }
-      Todo.find().then((todos) => {
-        expect(todos.length).toBe(1);
+      Todo.findById(todo._id).then((todo) => {
+        expect(todo).toNotExist();
         done();
       }).catch((e) => done(e));
     });
   });
 
-  it('should return a friendly error when the id is not found', (done) => {
+  it('returns a friendly error when the id is not found', (done) => {
     var missingId = '5bf2f0230edc174114f8a1ff';
     request(app)
       .delete(`/todos/${missingId}`)
@@ -134,7 +136,7 @@ describe('DELETE /todos/:id', () => {
       .end(done);
   });
 
-  it('should return a friendly error when the id is not valid', (done) => {
+  it('returns a friendly error when the id is not valid', (done) => {
     var invalidId = 'invalid id';
     request(app)
       .delete(`/todos/${invalidId}`)
@@ -144,4 +146,102 @@ describe('DELETE /todos/:id', () => {
       })
       .end(done);
   });
+});
+
+describe('PATCH /todos/:id', () => {
+  it('updates todos by id', (done) => {
+    tk.freeze(Date.now())
+    var todo = todos[0];
+    todo.text = 'do not ' + todo.text;
+    todo.completed = true;
+    request(app)
+      .patch(`/todos/${todo._id}`)
+      .send(todo)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.todo.text).toBe(todo.text, 'Expected updated record to be in response');
+      })
+      .end((err, res) => {
+        if(err) {
+          return done(err);
+        }
+        Todo.findById(todo._id).then((updatedTodo) => {
+          expect(updatedTodo.text).toBe(todo.text, 'Expected record to be updated in database');
+          expect(updatedTodo.completed).toBe(todo.completed, 'Expected record to be updated in database');
+          expect(updatedTodo.completedAt).toBe(Date.now());
+          tk.reset();
+          done();
+        }).catch((e) => done(e));
+      });
+    });
+
+    it('clears `completedAt` when completed is marked as false', (done) => {
+      var completedTodo = {
+        _id: (new ObjectId).toString(),
+        text: 'completed todo',
+        completed: true,
+        completedAt: Date.now()
+      }
+      Todo.create(completedTodo);
+      completedTodo.completed = false;
+      delete completedTodo.completedAt;
+
+      request(app)
+        .patch(`/todos/${completedTodo._id}`)
+        .send(completedTodo)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.completedAt).toBe(undefined);
+        })
+        .end(done);
+    });
+
+  it('only updates allowed properties', (done) => {
+    var originalTodo = todos[0];
+    var todo = _.clone(originalTodo);
+    todo._id = (new ObjectId).toString();
+    todo.completedAt = 1234;
+    request(app)
+      .patch(`/todos/${originalTodo._id}`)
+      .send(todo)
+      .expect(400)
+      .expect((res) => {
+        expect(res.body.todo).toNotExist();
+        expect(res.body.errors[0]).toBe('INVALID_PROPERTIES');
+      })
+      .end((err, res) => {
+        if(err) {
+          return done(err);
+        }
+        Todo.findById(originalTodo._id).then((updatedTodo) => {
+          expect(originalTodo).toExist();
+          expect(updatedTodo.completedAt).toNotExist();
+          done();
+        }).catch((e) => done(e));
+      });
+  });
+
+  it('returns a 404 when id is not found', (done) => {
+    var missingTodo = {
+      _id: (new ObjectId).toString(),
+      text: 'some text'
+    }
+    request(app)
+    .patch(`/todos/${missingTodo._id}`)
+    .send(missingTodo)
+    .expect(404)
+    .end(done);
+  })
+
+  it('returns a 404 when id is invalid', (done) => {
+    var invalidTodo = {
+      _id: 'invalid id',
+      text: 'some text'
+    }
+    request(app)
+    .patch(`/todos/${invalidTodo._id}`)
+    .send(invalidTodo)
+    .expect(404)
+    .end(done);
+  })
 });

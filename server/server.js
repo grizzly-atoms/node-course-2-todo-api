@@ -1,5 +1,6 @@
-var express = require('express');
-var bodyParser = require('body-parser');
+const _ = require('lodash');
+const express = require('express');
+const bodyParser = require('body-parser');
 const {ObjectId} = require('mongodb');
 
 var {mongoose} = require('./db/mongoose');
@@ -12,7 +13,6 @@ const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 
 app.post('/todos', (req, res) => {
-  // console.log(req.body);
   var todo = new Todo({
     text: req.body.text
   });
@@ -55,6 +55,39 @@ app.delete('/todos/:id', (req, res) => {
   Todo.findByIdAndRemove(req.params.id).then((todo) => {
     if(!todo) return res.status(404).send();
     res.send({todo});
+  }, (err) => {
+    res.status(400).send();
+  });
+});
+
+app.patch('/todos/:id', (req, res) => {
+  var id = req.params.id;
+
+  var dirtyBody = req.body;
+  var cleanBody = _.pick(dirtyBody, ['text', 'completed']);
+  if (!_.isEqual(cleanBody, _.omit(dirtyBody, ['_id']))) {
+    return res.status(400).send({ errors: ['INVALID_PROPERTIES']});
+  }
+
+  if(!ObjectId.isValid(id)) {
+    return res.status(404).send({
+      errors: ['INVALID_ID']
+    });
+  }
+
+  if(_.isBoolean(cleanBody.completed)){
+    cleanBody.completedAt =  cleanBody.completed ? Date.now() : null;
+  }
+
+  Todo.findByIdAndUpdate(id, {
+    $set: cleanBody
+  }, {
+    new: true
+  }).then((todo) => {
+    if(!todo) return res.status(404).send();
+    res.send({todo: todo});
+  }, (err) => {
+    console.log(err);
   });
 });
 
