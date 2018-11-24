@@ -6,6 +6,7 @@ const tk = require('timekeeper');
 
 const {app} = require('./../server');
 const {Todo} = require('./../models/todo');
+const {User} = require('./../models/user');
 
 const todos = [{
   _id: (new ObjectId).toString(),
@@ -16,10 +17,30 @@ const todos = [{
   text: 'drink me'
 }];
 
-beforeEach((done) => {
-  Todo.remove({}).then(() => {
-    return Todo.insertMany(todos);
-  }).then(() => done());
+const users = [
+  {
+    _id: (new ObjectId).toString(),
+    email: 'user1@example.com',
+    password: 'Password123!'
+  },
+  {
+    _id: (new ObjectId).toString(),
+    email: 'user2@example.com',
+    password: 'Password123!'
+  }];
+
+beforeEach(() => {
+  return Todo.remove({})
+    .then(() => {
+      return Todo.insertMany(todos);
+    });
+});
+
+beforeEach(() => {
+  return User.remove({})
+  .then(() => {
+    return User.insertMany(users);
+  });;
 });
 
 describe('POST /todos', () => {
@@ -227,10 +248,10 @@ describe('PATCH /todos/:id', () => {
       text: 'some text'
     }
     request(app)
-    .patch(`/todos/${missingTodo._id}`)
-    .send(missingTodo)
-    .expect(404)
-    .end(done);
+      .patch(`/todos/${missingTodo._id}`)
+      .send(missingTodo)
+      .expect(404)
+      .end(done);
   })
 
   it('returns a 404 when id is invalid', (done) => {
@@ -239,9 +260,66 @@ describe('PATCH /todos/:id', () => {
       text: 'some text'
     }
     request(app)
-    .patch(`/todos/${invalidTodo._id}`)
-    .send(invalidTodo)
-    .expect(404)
-    .end(done);
+      .patch(`/todos/${invalidTodo._id}`)
+      .send(invalidTodo)
+      .expect(404)
+      .end(done);
   })
+});
+
+describe('POST /users', () => {
+  it('creates users', (done) => {
+    var email = 'test@example.com';
+    var password = 'Password123!';
+    request(app)
+      .post('/users')
+      .send({email, password})
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.user.email).toBe(email);
+        expect(res.body.user.password).toBe(password);
+      })
+      .end((err, res) => {
+        if (err) {
+          return done(err);
+        }
+        User.find({email}).then((users) => {
+          expect(users.length).toBe(1);
+          expect(users[0].email).toBe(email)
+          expect(users[0].password).toBe(password)
+          done();
+        }).catch((e) => done(e));
+      });
+  });
+
+  it('does not create users with duplicate emails', (done) => {
+    user = users[0];
+    request(app)
+      .post('/users')
+      .send(user)
+      .expect(409)
+      .expect((res) => {
+        expect(res.body.errors[0]).toBe('DUPLICATE_RECORD');
+      })
+      .end(done);
+  });
+
+  it('only creates users with valid values', (done) => {
+    user = {
+      email: 'invalid@example.com',
+      password: 'Password1234!',
+      invalidProperty: 'invalid'
+    };
+    request(app)
+      .post('/users')
+      .send(user)
+      .expect(400)
+      .expect((res) => {
+        expect(res.body.errors[0]).toBe('INVALID_PROPERTIES');
+      })
+      .end(done);
+  });
+
+  it('only creates users who meet minimum password requirements');
+
 });

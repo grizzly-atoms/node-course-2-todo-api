@@ -92,6 +92,25 @@ app.patch('/todos/:id', (req, res) => {
   });
 });
 
+app.post('/users', (req, res) => {
+  var dirtyBody = req.body;
+  var cleanBody = _.pick(dirtyBody, ['email', 'password']);
+  if (!_.isEqual(cleanBody, _.omit(dirtyBody, ['_id']))) {
+    return res.status(400).send({ errors: ['INVALID_PROPERTIES']});
+  }
+
+  var newUser = new User(cleanBody);
+  newUser.save().then((newUser) => {
+    res.send({ user: newUser });
+  }, (err) => {
+    if (err.name == 'MongoError' && err.code == 11000) {
+      return res.status(409).send({errors: ['DUPLICATE_RECORD']})
+    }
+    console.log(err);
+    res.status(400).send(err);
+  });
+});
+
 app.listen(port, () => {
   console.log(`Started server on port ${port}`);
 });
