@@ -320,6 +320,19 @@ describe('POST /users', () => {
       .end(done);
   });
 
-  it('only creates users who meet minimum password requirements');
+  describe('Password Requirements', () => {
+    it('requires passwords of at least 6 characters', (done) => {
+      tooShortPassword = 'Pas1!'
+      user = {
+        email: 'test@example.com',
+        password: tooShortPassword
+      };
+      request(app)
+        .post('/users')
+        .send(user)
+        .expect(422)
+        .end(done);
+    });
+  });
 
 });

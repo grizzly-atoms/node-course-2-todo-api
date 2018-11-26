@@ -100,11 +100,15 @@ app.post('/users', (req, res) => {
   }
 
   var newUser = new User(cleanBody);
-  newUser.save().then((newUser) => {
-    res.send({ user: newUser });
-  }, (err) => {
+  newUser.save().then(() => {
+    return newUser.generateAuthToken();
+  }).then((token) => {
+    return res.header('x-auth', token).send({ user: newUser });
+  }).catch((err) => {
     if (err.name == 'MongoError' && err.code == 11000) {
       return res.status(409).send({errors: ['DUPLICATE_RECORD']})
+    } else if (err.name == 'ValidationError' ) {
+      return res.status(422).send({errors: []});
     }
     console.log(err);
     res.status(400).send(err);
