@@ -8,6 +8,7 @@ const {ObjectId} = require('mongodb');
 var {mongoose} = require('./db/mongoose');
 var {Todo} = require('./models/todo');
 var {User} = require('./models/user');
+var {authenticate} = require('./middleware/authenticate');
 
 var app = express();
 const port = process.env.PORT;
@@ -103,7 +104,7 @@ app.post('/users', (req, res) => {
   newUser.save().then(() => {
     return newUser.generateAuthToken();
   }).then((token) => {
-    return res.header('x-auth', token).send({ user: newUser });
+    res.header('x-auth', token).send({ user: newUser });
   }).catch((err) => {
     if (err.name == 'MongoError' && err.code == 11000) {
       return res.status(409).send({errors: ['DUPLICATE_RECORD']})
@@ -113,6 +114,10 @@ app.post('/users', (req, res) => {
     console.log(err);
     res.status(400).send(err);
   });
+});
+
+app.get('/users/me', authenticate, (req, res) => {
+  res.send(req.user);
 });
 
 app.listen(port, () => {

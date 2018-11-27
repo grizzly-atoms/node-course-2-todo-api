@@ -3,6 +3,7 @@ const expect = require('expect');
 const request = require('supertest');
 const {ObjectId} = require('mongodb');
 const tk = require('timekeeper');
+const jwt = require('jsonwebtoken');
 
 const {app} = require('./../server');
 const {Todo} = require('./../models/todo');
@@ -277,7 +278,11 @@ describe('POST /users', () => {
       .expect(200)
       .expect((res) => {
         expect(res.body.user.email).toBe(email);
-        expect(res.body.user.password).toBe(password);
+        expect(res.body.user.password).toNotExist();
+        expect(res.body.user.token).toNotExist();
+        expect(res.body.user.__v).toNotExist();
+        expect(res.headers['x-auth']).toBeA('string');
+        expect(jwt.verify(res.headers['x-auth'], 'abc123')).toBeA('object');
       })
       .end((err, res) => {
         if (err) {
@@ -285,8 +290,16 @@ describe('POST /users', () => {
         }
         User.find({email}).then((users) => {
           expect(users.length).toBe(1);
-          expect(users[0].email).toBe(email)
-          expect(users[0].password).toBe(password)
+          expect(users[0].email).toBe(email);
+          expect(users[0].password).toBe(password);
+          expect(users[0].tokens[0].access).toBe('auth');
+
+          var verifiedToken = jwt.verify(users[0].tokens[0].token, 'abc123')
+          console.log(users[0]);
+          console.log(verifiedToken.iat);
+          expect(verifiedToken._id).toBe(users[0]._id.toString());
+          expect(verifiedToken.access).toBe('auth');
+
           done();
         }).catch((e) => done(e));
       });
