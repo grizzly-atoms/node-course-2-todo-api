@@ -4,31 +4,13 @@ const request = require('supertest');
 const {ObjectId} = require('mongodb');
 const tk = require('timekeeper');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const {app} = require('./../server');
 const {Todo} = require('./../models/todo');
 const {User} = require('./../models/user');
+const {todos, users, populateTodos, populateUsers} = require('./seed/seed');
 
-const todos = [{
-  _id: (new ObjectId).toString(),
-  text: 'eat me'
-},
-{
-  _id: (new ObjectId).toString(),
-  text: 'drink me'
-}];
-
-const users = [
-  {
-    _id: (new ObjectId).toString(),
-    email: 'user1@example.com',
-    password: 'Password123!'
-  },
-  {
-    _id: (new ObjectId).toString(),
-    email: 'user2@example.com',
-    password: 'Password123!'
-  }];
 
 beforeEach(() => {
   return Todo.remove({})
@@ -37,12 +19,8 @@ beforeEach(() => {
     });
 });
 
-beforeEach(() => {
-  return User.remove({})
-  .then(() => {
-    return User.insertMany(users);
-  });;
-});
+beforeEach(populateUsers);
+beforeEach(populateTodos);
 
 describe('POST /todos', () => {
   it('creates new todos', (done) => {
@@ -291,12 +269,15 @@ describe('POST /users', () => {
         User.find({email}).then((users) => {
           expect(users.length).toBe(1);
           expect(users[0].email).toBe(email);
-          expect(users[0].password).toBe(password);
+
+          var stored_password = users[0].password;
+          bcrypt.compare(password, stored_password, (err, res) => {
+            expect(res).toBe(true);
+          });
+
           expect(users[0].tokens[0].access).toBe('auth');
 
-          var verifiedToken = jwt.verify(users[0].tokens[0].token, 'abc123')
-          console.log(users[0]);
-          console.log(verifiedToken.iat);
+          var verifiedToken = jwt.verify(users[0].tokens[0].token, 'abc123');
           expect(verifiedToken._id).toBe(users[0]._id.toString());
           expect(verifiedToken.access).toBe('auth');
 
@@ -309,7 +290,10 @@ describe('POST /users', () => {
     user = users[0];
     request(app)
       .post('/users')
-      .send(user)
+      .send({
+        email: user.email,
+        password: user.password
+      })
       .expect(409)
       .expect((res) => {
         expect(res.body.errors[0]).toBe('DUPLICATE_RECORD');
@@ -348,4 +332,57 @@ describe('POST /users', () => {
     });
   });
 
+});
+
+describe('GET /users/me', () => {
+  it('should return a user if authenticated', (done) => {
+    request(app)
+      .get('/users/me')
+      .set('x-auth', users[0].tokens[0].token)
+      .send()
+      .expect(200)
+      .expect((res) => {
+        expect(res.body._id).toBe(users[0]._id.toString())
+        expect(res.body.email).toBe(users[0].email)
+      })
+      .end(done);
+  });
+  it('should return a 401 if not authenticated', (done) => {
+    request(app)
+      .get('/users/me')
+      .send()
+      .expect(401)
+      .expect((res) => {
+        expect(res.body).toEqual({})
+      })
+      .end(done);
+  });
+});
+
+describe('POST /users/login', () => {
+  it('should login', (done) => {
+    request(app)
+      .post('/users/login')
+      .send(_.pick(users[0], ['email', 'password']))
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.user.email).toBe(users[0].email)
+        expect(jwt.verify(res.headers['x-auth'], 'abc123')).toBeA('object');
+      })
+      .end(done);
+  });
+
+  it('should fail login when passing an invalid password', (done) => {
+    request(app)
+      .post('/users/login')
+      .send({
+        email: users[0].email,
+        password: 'invalidpassword'
+      })
+      .expect(403)
+      .expect((res) => {
+        expect(res.body.user).toEqual(undefined)
+      })
+      .end(done);
+  })
 });
