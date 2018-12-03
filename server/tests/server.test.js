@@ -379,7 +379,7 @@ describe('POST /users/login', () => {
         email: users[0].email,
         password: 'invalidpassword'
       })
-      .expect(403)
+      .expect(401)
       .expect((res) => {
         expect(res.body.user).toEqual(undefined)
       })
