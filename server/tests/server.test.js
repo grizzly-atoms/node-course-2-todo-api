@@ -385,4 +385,26 @@ describe('POST /users/login', () => {
       })
       .end(done);
   })
+
+  describe('DELETE /users/login', () => {
+    it('should log out', async () => {
+      let token = users[0].tokens[0].token
+
+      await request(app)
+        .delete('/users/login')
+        .set('x-auth', token)
+        .expect(200);
+
+      await request(app)
+        .delete('/users/login')
+        .set('x-auth', token)
+        .expect(401)
+    });
+
+    it('should should fail with invalid credentials', async () => {
+      await request(app)
+        .delete('/users/login')
+        .expect(401);
+    });
+  });
 });
