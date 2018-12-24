@@ -11,14 +11,6 @@ const {Todo} = require('./../models/todo');
 const {User} = require('./../models/user');
 const {todos, users, populateTodos, populateUsers} = require('./seed/seed');
 
-
-beforeEach(() => {
-  return Todo.remove({})
-    .then(() => {
-      return Todo.insertMany(todos);
-    });
-});
-
 beforeEach(populateUsers);
 beforeEach(populateTodos);
 
