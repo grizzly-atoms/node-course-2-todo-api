@@ -295,7 +295,7 @@ describe('Users', () => {
           expect(res.body.user.token).toNotExist();
           expect(res.body.user.__v).toNotExist();
           expect(res.headers['x-auth']).toBeA('string');
-          expect(jwt.verify(res.headers['x-auth'], 'abc123')).toBeA('object');
+          expect(jwt.verify(res.headers['x-auth'], process.env.JWT_SECRET)).toBeA('object');
         })
         .end((err, res) => {
           if (err) {
@@ -312,7 +312,7 @@ describe('Users', () => {
 
             expect(users[0].tokens[0].access).toBe('auth');
 
-            var verifiedToken = jwt.verify(users[0].tokens[0].token, 'abc123');
+            var verifiedToken = jwt.verify(users[0].tokens[0].token, process.env.JWT_SECRET);
             expect(verifiedToken._id).toBe(users[0]._id.toString());
             expect(verifiedToken.access).toBe('auth');
 
@@ -402,7 +402,7 @@ describe('Users', () => {
         .expect(200)
         .expect((res) => {
           expect(res.body.user.email).toBe(users[0].email)
-          expect(jwt.verify(res.headers['x-auth'], 'abc123')).toBeA('object');
+          expect(jwt.verify(res.headers['x-auth'], process.env.JWT_SECRET)).toBeA('object');
         })
         .end(done);
     });
