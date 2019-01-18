@@ -131,7 +131,7 @@ describe('TODOs', () => {
         })
 
       deletedTodo = await Todo.findById(todo._id)
-      expect(deletedTodo).toNotExist();
+      expect(deletedTodo).toBeFalsy();
     });
 
     it('returns a friendly error when the id is not found', async () => {
@@ -230,13 +230,13 @@ describe('TODOs', () => {
         .set('x-auth', token)
         .expect(400)
         .expect((res) => {
-          expect(res.body.todo).toNotExist();
+          expect(res.body.todo).toBeFalsy();
           expect(res.body.errors[0]).toBe('INVALID_PROPERTIES');
         })
 
       updatedTodo = await Todo.findById(originalTodo._id)
-      expect(originalTodo).toExist();
-      expect(updatedTodo.completedAt).toNotExist();
+      expect(originalTodo).toBeTruthy();
+      expect(updatedTodo.completedAt).toBeFalsy();
     });
 
     it('returns a 404 when id is not found', async () => {
@@ -291,11 +291,11 @@ describe('Users', () => {
         .expect(200)
         .expect((res) => {
           expect(res.body.user.email).toBe(email);
-          expect(res.body.user.password).toNotExist();
-          expect(res.body.user.token).toNotExist();
-          expect(res.body.user.__v).toNotExist();
-          expect(res.headers['x-auth']).toBeA('string');
-          expect(jwt.verify(res.headers['x-auth'], process.env.JWT_SECRET)).toBeA('object');
+          expect(res.body.user.password).toBeFalsy();
+          expect(res.body.user.token).toBeFalsy();
+          expect(res.body.user.__v).toBeFalsy();
+          expect(typeof res.headers['x-auth']).toBe('string');
+          expect(typeof jwt.verify(res.headers['x-auth'], process.env.JWT_SECRET)).toBe('object');
         })
         .end((err, res) => {
           if (err) {
@@ -402,7 +402,7 @@ describe('Users', () => {
         .expect(200)
         .expect((res) => {
           expect(res.body.user.email).toBe(users[0].email)
-          expect(jwt.verify(res.headers['x-auth'], process.env.JWT_SECRET)).toBeA('object');
+          expect(typeof jwt.verify(res.headers['x-auth'], process.env.JWT_SECRET)).toBe('object');
         })
         .end(done);
     });
@@ -421,24 +421,24 @@ describe('Users', () => {
         .end(done);
     })
 
-    describe('DELETE /users/login', () => {
+    describe('DELETE /users/me/token', () => {
       it('should log out', async () => {
         let token = users[0].tokens[0].token
 
         await request(app)
-          .delete('/users/login')
+          .delete('/users/me/token')
           .set('x-auth', token)
           .expect(200);
 
         await request(app)
-          .delete('/users/login')
+          .delete('/users/me/token')
           .set('x-auth', token)
           .expect(401)
       });
 
       it('should should fail with invalid credentials', async () => {
         await request(app)
-          .delete('/users/login')
+          .delete('/users/me/token')
           .expect(401);
       });
     });
